@@ -253,3 +253,23 @@ def catalog_for_planner() -> str:
 
 if __name__ == "__main__" and False:
     pass
+
+
+def writer_brief(layout) -> str:
+    """Per-layout instructions for the content writer: which slots to fill + limits."""
+    lines = [f"Layout '{layout.layout_id}' [{layout.kind.value}]. Produce content for these slots:"]
+    for ts in layout.text:
+        if ts.role == "footer":
+            continue
+        lines.append(f"- {ts.role}: up to {ts.max_lines} line(s), each <= ~{char_budget(ts)} characters")
+    if layout.table:
+        lines.append(f"- table_rows: exactly up to {layout.table.rows} rows x {layout.table.cols} "
+                     f"columns (row 1 is the header). Keep each cell terse (a short label or a number, "
+                     f"~2-4 words). Every row must have {layout.table.cols} cells.")
+    if layout.smartart:
+        lines.append(f"- smartart: exactly {layout.smartart.labels} short node labels "
+                     f"(1-3 words each), in logical order.")
+    if layout.image:
+        lines.append("- NOTE: this layout has a visual region; do NOT write image content, "
+                     "only the text slots above.")
+    return "\n".join(lines)

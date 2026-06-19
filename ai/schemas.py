@@ -146,3 +146,24 @@ class PlannerOutput(BaseModel):
     model_config = _STRICT
     deck_title: str
     slides: list[PlannerChoice] = Field(min_length=1, max_length=11)
+
+
+# ── Writer draft (LLM output for ONE slide) ───────────────────────────────────
+# Uses explicit lists (not open dicts / nested arrays) so Gemini controlled
+# generation stays reliable. The node maps this onto a SlideContent.
+class SlotDraft(BaseModel):
+    model_config = _STRICT
+    role: str                          # must match a slot role in the layout
+    lines: list[str] = Field(default_factory=list)
+
+
+class TableRow(BaseModel):
+    model_config = _STRICT
+    cells: list[str] = Field(default_factory=list)
+
+
+class SlideDraft(BaseModel):
+    model_config = _STRICT
+    slots: list[SlotDraft] = Field(default_factory=list)
+    table_rows: list[TableRow] | None = None
+    smartart: list[str] | None = None
