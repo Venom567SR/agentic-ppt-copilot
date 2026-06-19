@@ -224,3 +224,32 @@ if __name__ == "__main__":
     for ts in s3.text:
         print(f"  {s3.layout_id}/{ts.role:11s} max_lines={ts.max_lines} "
               f"char_budget={char_budget(ts)}")
+
+
+# ---------------------------------------------------------------------------
+# Planner catalog: a compact, LLM-readable summary of selectable layouts.
+# Injected into the manager's prompt so it can only plan with REAL layouts.
+# ---------------------------------------------------------------------------
+def catalog_for_planner() -> str:
+    """One line per selectable layout: id, kind, and what it holds."""
+    lines = []
+    for lay in SLOT_MAP.values():
+        if not lay.selectable:
+            continue
+        parts = []
+        for ts in lay.text:
+            if ts.role == "footer":
+                continue
+            parts.append(f"{ts.role}(<={ts.max_lines} line{'s' if ts.max_lines > 1 else ''})")
+        if lay.table:
+            parts.append(f"table({lay.table.rows}x{lay.table.cols})")
+        if lay.smartart:
+            parts.append(f"smartart({lay.smartart.labels} labels)")
+        if lay.image:
+            parts.append("image(swappable)")
+        lines.append(f"- {lay.layout_id} [{lay.kind.value}]: {', '.join(parts)}")
+    return "\n".join(lines)
+
+
+if __name__ == "__main__" and False:
+    pass

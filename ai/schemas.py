@@ -129,3 +129,20 @@ class GuardrailResult(BaseModel):
     model_config = _STRICT
     passed: bool
     checks: list[ClaimCheck] = Field(default_factory=list)
+
+
+# ── Planner I/O ───────────────────────────────────────────────────────────────
+# The LLM picks layouts + titles (no slide numbers); the manager node maps each
+# choice to its real template slide via slot_map and enforces uniqueness. Keeping
+# slide-number assignment OUT of the LLM avoids a whole class of hallucinated ids.
+class PlannerChoice(BaseModel):
+    model_config = _STRICT
+    layout_id: str                    # must be a selectable id from slot_map
+    title: str
+    kind: Literal["data", "narrative"]
+
+
+class PlannerOutput(BaseModel):
+    model_config = _STRICT
+    deck_title: str
+    slides: list[PlannerChoice] = Field(min_length=1, max_length=11)
