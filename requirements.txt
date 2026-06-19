@@ -1,0 +1,16 @@
+langgraph
+langchain
+google-genai
+langchain-google-genai>=4.0.0
+pydantic>=2
+python-pptx
+lxml
+Pillow
+tavily-python
+deepeval
+fastapi
+uvicorn
+python-dotenv
+pyyaml
+matplotlib
+python-multipart

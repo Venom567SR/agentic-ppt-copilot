@@ -1,0 +1,1 @@
+"""\nai/tools/gemini_image.py\nNano Banana (Gemini image) wrapper with aspect-ratio hinting.\n\nTODO: implement.\n"""\n

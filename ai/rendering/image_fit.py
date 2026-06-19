@@ -1,0 +1,1 @@
+"""\nai/rendering/image_fit.py\nPillow resize/crop of a generated image to an exact bbox.\n\nTODO: implement.\n"""\n

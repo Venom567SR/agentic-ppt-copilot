@@ -1,0 +1,1 @@
+"""\nai/rendering/template_renderer.py\n\nREPLACE THIS STUB with the validated renderer deliverable (set_shape_lines /\nset_table / set_smartart_full / swap_image). Already built and QA-passed.\n"""\n
