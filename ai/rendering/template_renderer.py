@@ -148,17 +148,21 @@ def set_table(slide_tree: etree._Element, rows: list[list[str]]) -> None:
     tr_list = tbl.findall(_qn("a:tr"))
     for r_idx, tr in enumerate(tr_list):
         if r_idx >= len(rows):
-            break
+            # Unused template row -> remove it entirely (no leftover "20pt" text,
+            # and no empty banded rows). Columns are unaffected.
+            tbl.remove(tr)
+            continue
+        row = rows[r_idx]
         tc_list = tr.findall(_qn("a:tc"))
         for c_idx, tc in enumerate(tc_list):
-            if c_idx >= len(rows[r_idx]):
-                continue
+            # Cells the caller didn't supply are BLANKED, not left as template text.
+            value = str(row[c_idx]) if c_idx < len(row) else ""
             txbody = tc.find(_qn("a:txBody"))
             if txbody is None:
                 continue
             paras = txbody.findall(_qn("a:p"))
             if paras:
-                _set_paragraph_text(paras[0], str(rows[r_idx][c_idx]))
+                _set_paragraph_text(paras[0], value)
                 for extra in paras[1:]:
                     txbody.remove(extra)
 

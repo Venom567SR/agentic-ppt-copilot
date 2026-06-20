@@ -30,7 +30,8 @@ Hard rules:
 - Do NOT plan a title/cover slide, an agenda slide, or a thank-you slide -- those
   are added automatically. Plan only the body content slides.
 
-Also produce deck_title: a clean title for the whole presentation.
+Also produce deck_title: a clean, concise title for the whole presentation,
+at most ~32 characters (about 4-5 words) so it fits the cover slide on two lines.
 
 Choose layouts a planner would actually use for THIS topic; do not just list every
 layout. Quality and fit over quantity.

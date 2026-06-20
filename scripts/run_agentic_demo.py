@@ -26,8 +26,25 @@ for s in plan.slides:
 
 # 2) WRITE CONTENT (deck_writer) --------------------------------------------
 state = {"query": QUERY, "clarification_answers": CLARIFICATIONS, "plan": plan}
-slides = write_node(state)["slides"]
+write_out = write_node(state)
+slides = write_out["slides"]
+state["evidence_by_slide"] = write_out["evidence_by_slide"]
 print(f"\nWrote {len(slides)} content slides.")
+
+# 2b) VISUALS (image_generator): real brand charts for data chart-slides --
+from ai.agents.image_generator import node as image_node
+state["slides"] = slides
+slides = image_node(state)["slides"]
+print("Generated visuals for chart-image slides.")
+
+# 2c) GUARDRAIL (judge): verify data slides are grounded in evidence ------
+from ai.agents.judge import node as judge_node
+state["slides"] = slides
+guard = judge_node(state)["guardrail"]
+print("\nGrounding check:")
+for sn, res in guard.items():
+    flag = "PASS" if res.passed else "REVIEW"
+    print(f"  slide {sn}: {flag} ({len(res.checks)} claims checked)")
 
 # 3) ASSEMBLE bookends (title + thank-you) and RENDER -----------------------
 title_spec = {
@@ -39,7 +56,8 @@ title_spec = {
 thankyou_spec = {"slide": 16, "layout_id": "thankyou", "text": {"closing": ["Thank you"]}}
 
 specs = [title_spec] + [s.to_render_spec() for s in slides] + [thankyou_spec]
-deck, warnings = render_deck(specs, "agentic_demo", settings.template_path)
+deck, warnings = render_deck(specs, "agentic_demo", settings.template_path,
+                             deck_title=plan.deck_title)
 
 print(f"\nDECK: {deck}")
 print("WARNINGS:", warnings if warnings else "none")

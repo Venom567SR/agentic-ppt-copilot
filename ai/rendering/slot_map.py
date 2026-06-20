@@ -60,6 +60,8 @@ class SmartArtSlot:
 @dataclass(frozen=True)
 class ImageSlot:
     media: str           # ppt/media/<file> to overwrite (chart fallback PNG)
+    w: int = 1280        # original media pixel size (render charts/images to this aspect)
+    h: int = 720
     kind: str = "chart"  # swappable: real chart (data topic) or illustration (narrative fallback)
 
 
@@ -105,7 +107,7 @@ SLOT_MAP: dict[int, Layout] = {
         TextSlot("block_b",  "Text Placeholder 4", 3, 6.24, 20),
         TextSlot("body",     "Text Placeholder 5", 6, 6.11, 24),
         TextSlot("footer",   "Footer Placeholder 5", 2, None, 16, clear=True),
-    ], image=ImageSlot("image6.png", "chart"),
+    ], image=ImageSlot("image6.png", w=1090, h=568, kind="chart"),
        notes="Pie-chart fallback (OLE). Data topic -> real chart PNG; narrative -> illustration."),
 
     5: Layout(5, "table_2col", Kind.DATA, selectable=True, text=[
@@ -131,7 +133,7 @@ SLOT_MAP: dict[int, Layout] = {
         TextSlot("title",    "Text Placeholder 1", 1, 12.78, 32),
         TextSlot("subtitle", "Text Placeholder 2", 4, 5.11, 24),
         TextSlot("footer",   "Footer Placeholder 4", 1, None, 16, clear=True),
-    ], image=ImageSlot("image7.png", "chart"),
+    ], image=ImageSlot("image7.png", w=1967, h=755, kind="chart"),
        notes="Bar-chart fallback (OLE)."),
 
     9: Layout(9, "smartart_hierarchy", Kind.NARRATIVE, selectable=True, text=[
@@ -263,9 +265,11 @@ def writer_brief(layout) -> str:
             continue
         lines.append(f"- {ts.role}: up to {ts.max_lines} line(s), each <= ~{char_budget(ts)} characters")
     if layout.table:
-        lines.append(f"- table_rows: exactly up to {layout.table.rows} rows x {layout.table.cols} "
-                     f"columns (row 1 is the header). Keep each cell terse (a short label or a number, "
-                     f"~2-4 words). Every row must have {layout.table.cols} cells.")
+        lines.append(f"- table_rows: {layout.table.cols} columns (row 1 = header). "
+                     f"Use {min(layout.table.rows, 6)}-{layout.table.rows} rows. EACH CELL MUST BE "
+                     f"EXTREMELY TERSE: a number or 1-3 words (<=15 chars). NEVER write phrases, "
+                     f"sentences, or parentheticals in a cell; use abbreviations (e.g. 'PSBs', "
+                     f"'~59%', '>51%'). Every row must have exactly {layout.table.cols} cells.")
     if layout.smartart:
         lines.append(f"- smartart: exactly {layout.smartart.labels} short node labels "
                      f"(1-3 words each), in logical order.")

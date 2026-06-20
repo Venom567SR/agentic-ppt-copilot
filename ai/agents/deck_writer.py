@@ -37,6 +37,11 @@ class DeckWriter(BaseAgent[SlideDraft]):
                f"Slide title: {planned.title}\n"
                f"Kind: {planned.kind}\n\n"
                f"{writer_brief(layout)}")
+        ev = state.get("_evidence")
+        if ev:
+            msg += ("\n\nGROUNDING EVIDENCE (base all figures on this; do NOT invent "
+                    "numbers beyond it. If a needed figure is absent here, state it "
+                    "qualitatively rather than inventing a precise value):\n" + ev)
         if state.get("_tighten"):
             msg += f"\n\nIMPORTANT: {state['_tighten']}"
         return msg
@@ -67,22 +72,39 @@ def _validate(draft: SlideDraft, layout) -> list:
     return vios
 
 
-def write_one(state: GraphState, planned: PlannedSlide) -> SlideContent:
+def write_one(state: GraphState, planned: PlannedSlide,
+              evidence_sink: dict | None = None) -> SlideContent:
     layout = by_id(planned.layout_id)
-    draft = _agent.run({**state, "_slide": planned})
+
+    # Data slides are grounded: gather real web evidence + sources, feed both in.
+    evidence, sources = "", []
+    if planned.kind == "data":
+        from ai.agents.web_search import gather
+        evidence, sources = gather(state["query"], planned.title)
+        if evidence_sink is not None:
+            evidence_sink[planned.slide] = evidence   # kept for the judge guardrail
+
+    ctx = {**state, "_slide": planned, "_evidence": evidence}
+    draft = _agent.run(ctx)
     vios = _validate(draft, layout)
     if vios:
         hint = ("Some content did not fit. Fix these and keep everything within limits: "
                 + "; ".join(v.detail for v in vios[:4]))
         logger.warning("[deck_writer] slide %s (%s) fit issues, one retry: %s",
                        planned.slide, planned.layout_id, [v.kind for v in vios])
-        draft = _agent.run({**state, "_slide": planned, "_tighten": hint})
-    return _draft_to_content(planned, draft)
+        draft = _agent.run({**ctx, "_tighten": hint})
+
+    content = _draft_to_content(planned, draft)
+    if sources and content.text:
+        # attach provenance to the slide's first content slot
+        next(iter(content.text.values())).sources = sources
+    return content
 
 
 def node(state: GraphState) -> dict:
     """LangGraph node: write every planned slide -> list[SlideContent]."""
     plan = state["plan"]
-    slides = [write_one(state, p) for p in plan.slides]
+    evidence_by_slide: dict[int, str] = {}
+    slides = [write_one(state, p, evidence_by_slide) for p in plan.slides]
     logger.info("[deck_writer] wrote %d slides", len(slides))
-    return {"slides": slides, "status": "running"}
+    return {"slides": slides, "evidence_by_slide": evidence_by_slide, "status": "running"}

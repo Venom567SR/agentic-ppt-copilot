@@ -144,7 +144,7 @@ class PlannerChoice(BaseModel):
 
 class PlannerOutput(BaseModel):
     model_config = _STRICT
-    deck_title: str
+    deck_title: str = Field(max_length=34)  # cover-slide title: must stay <=2 lines at 48pt
     slides: list[PlannerChoice] = Field(min_length=1, max_length=11)
 
 
@@ -167,3 +167,24 @@ class SlideDraft(BaseModel):
     slots: list[SlotDraft] = Field(default_factory=list)
     table_rows: list[TableRow] | None = None
     smartart: list[str] | None = None
+
+
+# ── Chart spec (visual planner output for a DATA chart-image region) ──────────
+class ChartPoint(BaseModel):
+    model_config = _STRICT
+    label: str
+    value: float
+
+
+class ChartSpec(BaseModel):
+    model_config = _STRICT
+    chart_type: Literal["bar", "pie"]
+    title: str = ""
+    series_label: str = ""             # bar y-axis units, e.g. "% of market"
+    points: list[ChartPoint] = Field(min_length=2, max_length=8)
+
+
+# ── Web search (query planner output) ─────────────────────────────────────────
+class SearchQueries(BaseModel):
+    model_config = _STRICT
+    queries: list[str] = Field(min_length=1, max_length=3)

@@ -29,11 +29,21 @@ def pack(src_dir: str | Path, out_pptx: str | Path) -> Path:
     """Zip an unpacked tree back into a .pptx. Returns out_pptx."""
     src_dir, out_pptx = Path(src_dir), Path(out_pptx)
     out_pptx.parent.mkdir(parents=True, exist_ok=True)
-    if out_pptx.exists():
-        out_pptx.unlink()
-    with zipfile.ZipFile(out_pptx, "w", zipfile.ZIP_DEFLATED) as z:
+
+    # Write to a temp file first, then move into place. If the target is locked
+    # (e.g. the previous deck is still open in PowerPoint on Windows), fall back
+    # to a timestamped name instead of crashing after a long agent run.
+    tmp = out_pptx.with_suffix(out_pptx.suffix + ".tmp")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         for path in sorted(src_dir.rglob("*")):
             if path.is_file():
-                arcname = path.relative_to(src_dir).as_posix()
-                z.write(path, arcname)
-    return out_pptx
+                z.write(path, path.relative_to(src_dir).as_posix())
+
+    try:
+        tmp.replace(out_pptx)                      # atomic overwrite
+        return out_pptx
+    except PermissionError:
+        import time
+        alt = out_pptx.with_name(f"{out_pptx.stem}_{int(time.time())}{out_pptx.suffix}")
+        tmp.replace(alt)
+        return alt                                 # caller gets the path actually written
