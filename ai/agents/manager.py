@@ -40,9 +40,12 @@ class Manager(BaseAgent[PlannerOutput]):
     def build_user_message(self, state: GraphState) -> str:
         msg = f"Topic:\n{state['query']}"
         msg += _format_clarifications(state)
-        files = state.get("user_files") or []
-        if files:
-            msg += f"\n\nThe user attached {len(files)} source document(s); plan slides that can draw on them."
+        corpus_map = state.get("corpus_map")
+        if corpus_map:
+            msg += ("\n\nThe user attached source documents (ground truth). Plan slides "
+                    "that draw on what these actually contain:\n" + corpus_map)
+        elif state.get("user_files"):
+            msg += f"\n\nThe user attached {len(state['user_files'])} source document(s); plan slides that can draw on them."
         msg += "\n\nAvailable layouts (choose layout_id only from these):\n"
         msg += catalog_for_planner()
         return msg
@@ -72,7 +75,7 @@ def _to_plan(out: PlannerOutput) -> DeckPlan:
                                     title=ch.title, kind=ch.kind))
     if not planned:
         raise AgentError("manager", "planner produced no valid layouts")
-    return DeckPlan(deck_title=out.deck_title, slides=planned)
+    return DeckPlan(deck_title=out.deck_title, subtitle=out.subtitle, slides=planned)
 
 
 def node(state: GraphState) -> dict:

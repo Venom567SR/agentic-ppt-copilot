@@ -19,7 +19,7 @@ import operator
 from typing import Annotated, Literal, TypedDict
 
 from ai.schemas import (             # repo import
-    IntentVerdict, DeckPlan, SlideContent, Source, FallbackDecision,
+    IntentVerdict, DeckPlan, SlideContent, Source, FallbackDecision, GuardrailResult,
 )
 
 Status = Literal[
@@ -38,6 +38,11 @@ class GraphState(TypedDict, total=False):
     query: str
     user_files: list[str]                       # uploaded docs = ground truth
 
+    # ── user-file grounding (context_retriever) ──
+    corpus_map: str                             # compact map -> clarifier / manager
+    curated_evidence: str                       # curated verbatim user_file evidence
+    scope_question: str                         # supervisor -> extra clarifying question
+
     # ── control (drives the HITL interrupt/resume contract) ──
     status: Status
 
@@ -47,6 +52,8 @@ class GraphState(TypedDict, total=False):
     clarification_answers: dict[str, str]       # user reply at gate 1
     plan: DeckPlan                              # (2) planner -> gate 2
     slides: list[SlideContent]                  # (3) content (set wholesale)
+    evidence_by_slide: dict[int, str]           # (3) web evidence per data slide -> judge
+    guardrail: dict[int, GuardrailResult]       # (4) grounding result per slide
     deck_path: str                              # (4) rendered deck
     citations: str                              # (5) assembled citations panel
 

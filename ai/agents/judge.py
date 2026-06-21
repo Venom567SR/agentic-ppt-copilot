@@ -48,17 +48,24 @@ def check_one(slide_content: SlideContent, evidence: str, query: str) -> Guardra
 
 
 def node(state: GraphState) -> dict:
-    """LangGraph node: verify every data slide; report unsupported claims."""
+    """LangGraph node: verify every data slide; report unsupported claims.
+
+    Evidence = curated user-file ground truth (whole-deck, authoritative) + any
+    per-slide web evidence. Combining both means the judge always sees the user's
+    uploaded data and won't flag file-sourced figures as unsupported."""
+    from ai.agents.deck_writer import _combine_evidence
     slides: list[SlideContent] = state["slides"]
     plan = state["plan"]
     kind_by_slide = {p.slide: p.kind for p in plan.slides}
     evidence_by_slide = state.get("evidence_by_slide", {})
+    curated = state.get("curated_evidence", "")
 
     results: dict[int, GuardrailResult] = {}
     for sc in slides:
         if kind_by_slide.get(sc.slide) != "data":
             continue
-        result = check_one(sc, evidence_by_slide.get(sc.slide, ""), state["query"])
+        evidence = _combine_evidence(curated, evidence_by_slide.get(sc.slide, ""))
+        result = check_one(sc, evidence, state["query"])
         results[sc.slide] = result
         if not result.passed:
             bad = [c.claim for c in result.checks if not c.supported]

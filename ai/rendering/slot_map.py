@@ -41,6 +41,8 @@ class TextSlot:
     width_in: float | None
     font_pt: int         # nominal visible size
     clear: bool = False  # footers carry template boilerplate → blank them
+    fit_box: bool = False  # resize the shape width to width_in at render (keeps text out of a neighbour)
+    render_font_pt: int | None = None  # force a smaller run font so max_lines fit a short box
 
 
 @dataclass(frozen=True)
@@ -95,17 +97,17 @@ SLOT_MAP: dict[int, Layout] = {
 
     3: Layout(3, "content_bullets", Kind.NARRATIVE, selectable=True, text=[
         TextSlot("title",    "Text Placeholder 1", 1, 12.78, 32),
-        TextSlot("subtitle", "Text Placeholder 4", 2, 12.78, 24),
+        TextSlot("subtitle", "Text Placeholder 4", 2, 12.78, 24, render_font_pt=18),
         TextSlot("body",     "Text Placeholder 5", 6, 12.78, 24),
         TextSlot("footer",   "Footer Placeholder 2", 3, 7.67, 16, clear=True),
     ], notes="Body paragraph 2 carries the template's bold-emphasis style."),
 
     4: Layout(4, "content_chart", Kind.DATA, selectable=True, text=[
         TextSlot("title",    "Text Placeholder 1", 1, 12.78, 32),
-        TextSlot("subtitle", "Text Placeholder 7", 2, 5.44, 24),
-        TextSlot("block_a",  "Text Placeholder 3", 3, 6.25, 20),
-        TextSlot("block_b",  "Text Placeholder 4", 3, 6.24, 20),
-        TextSlot("body",     "Text Placeholder 5", 6, 6.11, 24),
+        TextSlot("subtitle", "Text Placeholder 7", 1, 5.44, 24),
+        TextSlot("block_a",  "Text Placeholder 3", 1, 6.25, 20),
+        TextSlot("block_b",  "Text Placeholder 4", 2, 6.24, 20),
+        TextSlot("body",     "Text Placeholder 5", 6, 5.35, 24, fit_box=True),
         TextSlot("footer",   "Footer Placeholder 5", 2, None, 16, clear=True),
     ], image=ImageSlot("image6.png", w=1090, h=568, kind="chart"),
        notes="Pie-chart fallback (OLE). Data topic -> real chart PNG; narrative -> illustration."),
@@ -131,7 +133,7 @@ SLOT_MAP: dict[int, Layout] = {
 
     8: Layout(8, "content_barchart", Kind.DATA, selectable=True, text=[
         TextSlot("title",    "Text Placeholder 1", 1, 12.78, 32),
-        TextSlot("subtitle", "Text Placeholder 2", 4, 5.11, 24),
+        TextSlot("subtitle", "Text Placeholder 2", 2, 5.11, 24, render_font_pt=18),
         TextSlot("footer",   "Footer Placeholder 4", 1, None, 16, clear=True),
     ], image=ImageSlot("image7.png", w=1967, h=755, kind="chart"),
        notes="Bar-chart fallback (OLE)."),

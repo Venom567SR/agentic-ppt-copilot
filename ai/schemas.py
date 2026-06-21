@@ -57,6 +57,7 @@ class PlannedSlide(BaseModel):
 class DeckPlan(BaseModel):
     model_config = _STRICT
     deck_title: str
+    subtitle: str = ""
     slides: list[PlannedSlide] = Field(min_length=1, max_length=14)
 
 
@@ -116,6 +117,16 @@ class FallbackDecision(BaseModel):
     reason: str
 
 
+class ScopeDecision(BaseModel):
+    """Supervisor's judgment on whether the data scope is ambiguous enough to ask
+    the user before planning (e.g. uploaded org-specific data vs an industry-wide
+    topic). Only the genuinely-ambiguous case raises a question."""
+    model_config = _STRICT
+    ambiguous: bool
+    question: str = ""          # one concise scope question to ask, if ambiguous
+    reason: str = ""
+
+
 # ── Output guardrail (phase 5) ─────────────────────────────────────────────────
 class ClaimCheck(BaseModel):
     model_config = _STRICT
@@ -145,6 +156,7 @@ class PlannerChoice(BaseModel):
 class PlannerOutput(BaseModel):
     model_config = _STRICT
     deck_title: str = Field(max_length=34)  # cover-slide title: must stay <=2 lines at 48pt
+    subtitle: str = Field(default="", max_length=40)  # cover tagline
     slides: list[PlannerChoice] = Field(min_length=1, max_length=11)
 
 
@@ -188,3 +200,11 @@ class ChartSpec(BaseModel):
 class SearchQueries(BaseModel):
     model_config = _STRICT
     queries: list[str] = Field(min_length=1, max_length=3)
+
+
+class CuratedSelection(BaseModel):
+    """Per-batch output of context_curator: the global IDs of chunks worth keeping
+    as relevant context for the deck agenda. Empty = nothing relevant in this batch.
+    The agent only SELECTS; it never rewrites a chunk (verbatim ground truth)."""
+    model_config = _STRICT
+    keep_ids: list[int] = Field(default_factory=list)

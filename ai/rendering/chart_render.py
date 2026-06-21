@@ -51,7 +51,9 @@ def render_chart(spec, width_px: int, height_px: int, out_path: str | Path) -> P
     if spec.title:
         ax.set_title(spec.title, color=NAVY, fontsize=11, fontweight="bold")
 
-    fig.tight_layout()
-    fig.savefig(out_path, facecolor="white", bbox_inches="tight")
+    # Pad internally and save at EXACTLY width_px x height_px (no tight crop, which
+    # would change the aspect and oversize the image inside its slide frame).
+    fig.subplots_adjust(left=0.08, right=0.92, top=0.86, bottom=0.12)
+    fig.savefig(out_path, facecolor="white")
     plt.close(fig)
     return out_path

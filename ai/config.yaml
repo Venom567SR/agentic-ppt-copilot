@@ -7,11 +7,13 @@ model_routing:
   research_agent:    gemini-2.5-flash
   manager:           gemini-2.5-pro
   context_retriever: gemini-2.5-flash
+  context_curator: gemini-2.5-flash
   web_search:        gemini-2.5-flash
   deck_writer:       gemini-2.5-pro
   image_generator:   gemini-2.5-pro
   image_model:       gemini-2.5-flash-image
   judge:             gemini-2.5-pro
+  supervisor: gemini-2.5-pro
 
 brand:
   fonts:   { header: "Mulish ExtraBold", body: "Mulish SemiBold" }

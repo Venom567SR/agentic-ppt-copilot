@@ -48,15 +48,23 @@ Rules:
 - For table_rows: the first row is the header; keep every cell terse; give each
   row the exact number of cells specified.
 - For smartart: give exactly the requested number of labels. Labels sit inside
-  SMALL shapes, so each must be VERY short -- ideally 1-2 words and <= ~14
-  characters. Avoid long phrases (they wrap badly). E.g. "Strong Growth" not
-  "Robust Economic Growth"; "Inclusion" not "Economic Formalization".
+  SMALL shapes, so each must be VERY short -- ONE word where possible, never more
+  than 2 words and <= 12 characters. A label that wraps mid-word is a failure.
+  E.g. "Growth" not "Economic Growth"; "Digital" not "Digitalization Drive".
 - Write in a professional, neutral, factual register suitable for a financial
   institution. No marketing fluff, no first person.
 - For [data] slides: present concrete, realistic, domain-appropriate figures and
   categories. If you are NOT confident a precise statistic is correct, prefer a
   qualitative or rounded statement rather than inventing a false exact number
   (figures may be verified downstream).
+- STAY WITHIN THE EVIDENCE: use only figures and TIME PERIODS that the supplied
+  evidence actually contains. Do NOT extrapolate to periods the evidence does not
+  cover (e.g. if the data ends at FY24, do not state FY25 or H1 FY25 figures), and
+  do NOT compute or blend new aggregate numbers that are not stated. If a figure
+  is not in the evidence, state it qualitatively instead of inventing one.
+- When grounding evidence is supplied, prefer USER-PROVIDED SOURCE MATERIAL over
+  web evidence; if they conflict, the user material wins. Never state a figure that
+  no supplied evidence supports.
 - Do not include citations, footnotes, or source markers in the content.
 
 Return only the structured content for this one slide.

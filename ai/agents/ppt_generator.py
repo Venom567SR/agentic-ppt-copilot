@@ -55,6 +55,17 @@ def apply_slide(unpacked: Path, slide_no: int, layout, content: dict,
             sp = tr.shape_by_name(root, ts.name)
             if sp is not None:
                 tr.set_shape_lines(sp, lines)
+                # Force a smaller font where a short box can't hold its line capacity
+                # at the nominal size (subtitle-over-body overflow).
+                if ts.render_font_pt:
+                    tr.set_run_font(sp, ts.render_font_pt)
+                # Shrink-to-fit on every text placeholder: a slight overshoot scales
+                # down to fit its box instead of overflowing into neighbours.
+                tr.set_autofit_shrink(sp)
+                # Some template boxes are drawn wider than their column and overrun a
+                # neighbour (e.g. content_chart body over the chart). Pull them in.
+                if ts.fit_box and ts.width_in:
+                    tr.set_shape_width(sp, ts.width_in)
         elif ts.clear:
             # Footer: carry the deck title (brand-consistent) instead of boilerplate.
             sp = tr.shape_by_name(root, ts.name)
@@ -113,3 +124,27 @@ def render_deck(spec: list[dict], thread_id: str, template_path: str,
     out = rp.root / fname
     written = pack(rp.unpacked, out)
     return str(written), warnings
+
+
+def node(state) -> dict:
+    """LangGraph node: render the branded deck = cover + agenda + content + thanks."""
+    from ai.config_env import settings
+    plan = state["plan"]
+
+    date_str = datetime.now(_IST).strftime("%B %d, %Y")
+    cover = {"slide": 1, "layout_id": "title", "text": {
+        "title": [plan.deck_title],
+        "subtitle": [plan.subtitle] if getattr(plan, "subtitle", "") else [],
+        "date": [date_str]}}
+    agenda = {"slide": 2, "layout_id": "agenda", "text": {
+        "heading": ["Agenda"],
+        "body": [s.title for s in plan.slides][:5]}}
+    thankyou = {"slide": 16, "layout_id": "thankyou", "text": {"closing": ["Thank you"]}}
+
+    spec = [cover, agenda] + [sc.to_render_spec() for sc in state["slides"]] + [thankyou]
+    path, warnings = render_deck(spec, state["thread_id"], settings.template_path,
+                                 deck_title=plan.deck_title)
+    out = {"deck_path": path, "status": "done"}
+    if warnings:
+        out["warnings"] = warnings
+    return out

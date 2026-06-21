@@ -23,7 +23,7 @@ class DeckWriter(BaseAgent[SlideDraft]):
     system_prompt = SYSTEM_PROMPT
     prompt_version = VERSION
     output_schema = SlideDraft
-    temperature = 0.4
+    temperature = 0.0
 
     def build_user_message(self, state: GraphState) -> str:
         planned: PlannedSlide = state["_slide"]
@@ -57,14 +57,14 @@ def _draft_to_content(planned: PlannedSlide, draft: SlideDraft) -> SlideContent:
                         text=text, table=table, smartart=draft.smartart)
 
 
-def _validate(draft: SlideDraft, layout) -> list:
+def _validate(draft: SlideDraft, layout, tol: float = 0.0) -> list:
     vios = []
     for s in draft.slots:
         ts = fv.slot_by_role(layout, s.role)
         if ts is None:
             vios.append(fv.Violation(s.role, "unknown_slot", f"role '{s.role}' not in layout"))
             continue
-        vios += fv.check_text(s.role, ts, s.lines)
+        vios += fv.check_text(s.role, ts, s.lines, tol=tol)
     if layout.table and draft.table_rows:
         vios += fv.check_table([list(r.cells) for r in draft.table_rows], layout)
     if layout.smartart and draft.smartart is not None:
@@ -72,21 +72,42 @@ def _validate(draft: SlideDraft, layout) -> list:
     return vios
 
 
+def _combine_evidence(curated: str, web: str) -> str:
+    """User files are authoritative ground truth; web is supplementary. Labels make
+    the hierarchy explicit to both the writer and the judge (user_file > web)."""
+    parts = []
+    if curated:
+        parts.append("USER-PROVIDED SOURCE MATERIAL (authoritative ground truth -- prefer "
+                     "this; if it conflicts with web data, this wins):\n" + curated)
+    if web:
+        parts.append("WEB EVIDENCE (supplementary; use where the user material is silent):\n" + web)
+    return "\n\n".join(parts)
+
+
 def write_one(state: GraphState, planned: PlannedSlide,
               evidence_sink: dict | None = None) -> SlideContent:
     layout = by_id(planned.layout_id)
 
-    # Data slides are grounded: gather real web evidence + sources, feed both in.
-    evidence, sources = "", []
-    if planned.kind == "data":
+    # Ground truth from user files (curated, whole-deck). Web search ONLY when
+    # necessary -- i.e. no user-file evidence is available for grounding.
+    curated = state.get("curated_evidence") or ""
+    web_evidence, sources = "", []
+    if planned.kind == "data" and not curated:
         from ai.agents.web_search import gather
-        evidence, sources = gather(state["query"], planned.title)
-        if evidence_sink is not None:
-            evidence_sink[planned.slide] = evidence   # kept for the judge guardrail
+        web_evidence, sources = gather(state["query"], planned.title)
+
+    # The writer sees both (user_file preferred); the judge gets curated from its
+    # own state channel, so the sink carries ONLY the web part to avoid duplication.
+    if evidence_sink is not None and web_evidence:
+        evidence_sink[planned.slide] = web_evidence
+    evidence = _combine_evidence(curated, web_evidence)
 
     ctx = {**state, "_slide": planned, "_evidence": evidence}
     draft = _agent.run(ctx)
-    vios = _validate(draft, layout)
+    # Retry only on SIGNIFICANT overflow (>15% over a line budget) or structural
+    # issues (too many lines / bad grid / wrong label count). Minor 1-3 char
+    # overshoots are absorbed by shrink-to-fit, so they don't justify a re-gen.
+    vios = _validate(draft, layout, tol=0.15)
     if vios:
         hint = ("Some content did not fit. Fix these and keep everything within limits: "
                 + "; ".join(v.detail for v in vios[:4]))

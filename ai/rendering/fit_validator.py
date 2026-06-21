@@ -26,14 +26,19 @@ class Violation:
 
 # --- text -------------------------------------------------------------------
 def check_text(role: str, slot: TextSlot, lines: list[str],
-               bold: bool = False) -> list[Violation]:
+               bold: bool = False, tol: float = 0.0) -> list[Violation]:
+    """Validate a text slot. `tol` relaxes the per-line budget by a fraction: at
+    tol=0 every overshoot is flagged (used for warnings); the writer's retry
+    decision uses tol>0 so a 1-3 char overshoot (which autofit absorbs) doesn't
+    trigger a costly re-generation."""
     out: list[Violation] = []
     if len(lines) > slot.max_lines:
         out.append(Violation(role, "too_many_lines",
                              f"{len(lines)} lines > capacity {slot.max_lines}"))
     budget = char_budget(slot, bold=bold)
+    limit = int(budget * (1 + tol))
     for i, ln in enumerate(lines):
-        if len(ln) > budget:
+        if len(ln) > limit:
             out.append(Violation(f"{role}[{i}]", "line_too_long",
                                  f"{len(ln)} chars > budget {budget}: {ln[:40]!r}…"))
     return out

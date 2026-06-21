@@ -32,6 +32,8 @@ Hard rules:
 
 Also produce deck_title: a clean, concise title for the whole presentation,
 at most ~32 characters (about 4-5 words) so it fits the cover slide on two lines.
+Also produce subtitle: a short cover tagline (<= ~40 characters) that complements
+the title without repeating it (e.g. "Structure, Growth & Outlook").
 
 Choose layouts a planner would actually use for THIS topic; do not just list every
 layout. Quality and fit over quantity.
