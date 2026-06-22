@@ -5,7 +5,7 @@ Prompts-as-code. The per-layout slot brief is injected at call time from
 slot_map.writer_brief(). Import: from ai.agents_prompts.deck_writer import system_prompt, VERSION
 """
 
-VERSION = "v2"
+VERSION = None  # set at the bottom, derived from the active prompt
 
 system_prompt_v1 = """\
 You write the content for ONE slide of a corporate presentation that fills a fixed
@@ -70,4 +70,36 @@ Rules:
 Return only the structured content for this one slide.
 """
 
-system_prompt = system_prompt_v2
+# v3 (STAGED / inactive -- flip the ACTIVE selector below to A/B test): same rules as
+# v2 plus worked examples that lock in the bullet/table/smartart style. deck_writer
+# already produces strong output, so this stays inactive until a comparison shows it
+# measurably helps (e.g. fewer fit retries or crisper bullets).
+system_prompt_v3 = system_prompt_v2 + """
+EXAMPLES (style reference -- do not copy the content, match the form):
+
+Good body bullets (each a self-contained point, tight):
+- "Gross NPA ratio fell to 2.8% in FY24 from 6.0% in FY21"
+- "PCR strengthened to 74.5%, well above the prudential norm"
+Bad (one sentence split across two bullets):
+- "Gross NPA ratio fell to 2.8% in FY24"
+- "from 6.0% in FY21, showing steady improvement"
+
+Good smartart labels (<=12 chars, whole words): "Digital", "Deposits", "Capital".
+Bad (wraps mid-word / too long): "Digitalization", "Deposit Growth Momentum".
+
+Good table row (terse cells, exact count): ["SBI", "13.41", "18.43"].
+Bad (verbose cells): ["State Bank of India (PSB)", "13.41% in FY21", "18.43% in FY24"].
+
+Good qualitative fallback when a figure is absent from evidence:
+- "Capital adequacy remained comfortably above the regulatory minimum"
+Bad (invented precision not in evidence):
+- "Capital adequacy stood at exactly 16.7% as of H1 FY25"
+"""
+
+# ── ACTIVE PROMPT: change ONLY this line to switch versions (all defined above) ──
+system_prompt = system_prompt_v3          # A/B: set to system_prompt_v3
+
+# VERSION tracks whichever prompt is active above, so logs never mislabel an A/B run.
+VERSION = next(v for v, p in [("v1", system_prompt_v1),
+                              ("v2", system_prompt_v2),
+                              ("v3", system_prompt_v3)] if p is system_prompt)

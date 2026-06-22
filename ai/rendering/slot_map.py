@@ -279,3 +279,26 @@ def writer_brief(layout) -> str:
         lines.append("- NOTE: this layout has a visual region; do NOT write image content, "
                      "only the text slots above.")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Human-readable layout descriptions (for the plan-approval gate / UI).
+# ---------------------------------------------------------------------------
+_HUMAN_LABEL = {
+    "content_bullets":   "a bulleted overview",
+    "content_chart":     "a chart with supporting points",
+    "content_barchart":  "a bar chart with a headline",
+    "table_2col":        "a two-column table",
+    "table_3col":        "a three-column table",
+    "table_5col":        "a five-column comparison table",
+    "smartart_hierarchy":"a hierarchy diagram",
+    "smartart_process":  "a process flow",
+    "smartart_cards":    "a set of cards",
+    "smartart_chevron":  "a chevron sequence",
+    "smartart_hexagon":  "a hexagon cluster",
+}
+
+
+def describe_layout(layout_id: str) -> str:
+    """A short, user-facing phrase for a layout (no internal IDs / slide numbers)."""
+    return _HUMAN_LABEL.get(layout_id, layout_id.replace("_", " "))

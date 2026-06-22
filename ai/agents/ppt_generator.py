@@ -19,6 +19,9 @@ from ai.rendering import fit_validator as fv
 from ai.rendering.slot_map import by_id
 from ai.rendering.pptx_io import pack
 from ai.rendering.workspace import make_run_dir
+from ai.src.logger import get_logger
+
+logger = get_logger(__name__)
 
 NS_P = "http://schemas.openxmlformats.org/presentationml/2006/main"
 NS_R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -142,8 +145,18 @@ def node(state) -> dict:
     thankyou = {"slide": 16, "layout_id": "thankyou", "text": {"closing": ["Thank you"]}}
 
     spec = [cover, agenda] + [sc.to_render_spec() for sc in state["slides"]] + [thankyou]
+    logger.info("[render] assembling branded deck (%d content slides)...", len(state["slides"]))
     path, warnings = render_deck(spec, state["thread_id"], settings.template_path,
                                  deck_title=plan.deck_title)
+
+    gr = state.get("guardrail") or {}
+    n_claims = sum(len(r.checks) for r in gr.values())
+    n_grounded = sum(1 for r in gr.values() for c in r.checks if c.supported)
+    n_soft = len(state.get("fallbacks") or [])
+    logger.info("[render] deck complete -> %s", path)
+    logger.info("[render] grounding summary: %d/%d claims grounded across %d data slide(s), "
+                "%d slide(s) softened", n_grounded, n_claims, len(gr), n_soft)
+
     out = {"deck_path": path, "status": "done"}
     if warnings:
         out["warnings"] = warnings

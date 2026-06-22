@@ -20,5 +20,7 @@ brand:
   primary: { orange: "DB620A", maroon: "97291E", navy: "053C6D", beige: "D1CFBB" }
   secondary: { purple: "917BB9", gold: "FDB92A", pink: "F4858E", cyan: "00C0F3" }
 
+max_workers: 4
+
 # Per-slot capacities are authored in ai/rendering/slot_map.py (derived from the
 # real template) and consumed by fit_validator.py.

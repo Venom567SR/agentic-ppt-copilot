@@ -21,10 +21,11 @@ logger = get_logger(__name__)
 def _format_clarifications(state: GraphState) -> str:
     qs = state.get("clarifying_questions") or []
     ans = state.get("clarification_answers") or {}
+    q_texts = [q.question for q in qs]  # qs are ClarifyingQuestion objects
     if isinstance(ans, str):
         return f"\n\nUser clarification:\n{ans}"
     if isinstance(ans, dict) and ans:
-        pairs = "\n".join(f"Q: {q}\nA: {ans.get(q, '(no answer)')}" for q in qs) if qs \
+        pairs = "\n".join(f"Q: {q}\nA: {ans.get(q, '(no answer)')}" for q in q_texts) if q_texts \
                 else "\n".join(f"Q: {k}\nA: {v}" for k, v in ans.items())
         return f"\n\nUser clarifications:\n{pairs}"
     return ""
@@ -46,6 +47,16 @@ class Manager(BaseAgent[PlannerOutput]):
                     "that draw on what these actually contain:\n" + corpus_map)
         elif state.get("user_files"):
             msg += f"\n\nThe user attached {len(state['user_files'])} source document(s); plan slides that can draw on them."
+        # Revision pass: the user reviewed the plan and asked for changes.
+        feedback = state.get("plan_feedback")
+        prev = state.get("plan")
+        if feedback and prev is not None:
+            current = "\n".join(f"- {s.layout_id}: {s.title} [{s.kind}]" for s in prev.slides)
+            msg += (f"\n\nYou already proposed this plan:\n{current}\n\n"
+                    f"The user asked for these changes:\n{feedback}\n\n"
+                    "Produce a REVISED plan that honours the request. Keep what still "
+                    "fits; change only what the feedback implies. Remember each layout "
+                    "can be used at most once.")
         msg += "\n\nAvailable layouts (choose layout_id only from these):\n"
         msg += catalog_for_planner()
         return msg
@@ -75,13 +86,17 @@ def _to_plan(out: PlannerOutput) -> DeckPlan:
                                     title=ch.title, kind=ch.kind))
     if not planned:
         raise AgentError("manager", "planner produced no valid layouts")
-    return DeckPlan(deck_title=out.deck_title, subtitle=out.subtitle, slides=planned)
+    return DeckPlan(deck_title=out.deck_title, subtitle=out.subtitle,
+                    note=out.note, slides=planned)
 
 
 def node(state: GraphState) -> dict:
-    """LangGraph node: plan the deck, map to real slides, pause for approval at gate 2."""
+    """LangGraph node: plan the deck (or re-plan from feedback), map to real slides,
+    pause for approval at gate 2."""
     out = _agent.run(state)
     plan = _to_plan(out)
-    logger.info("[manager] planned %d slides: %s",
+    revised = bool(state.get("plan_feedback"))
+    logger.info("[manager] %s %d slides: %s", "re-planned" if revised else "planned",
                 len(plan.slides), [s.layout_id for s in plan.slides])
-    return {"plan": plan, "status": "awaiting_approval"}
+    # Consume the feedback so the approval gate routes on the user's next decision.
+    return {"plan": plan, "status": "awaiting_approval", "plan_feedback": ""}

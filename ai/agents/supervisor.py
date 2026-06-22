@@ -74,8 +74,10 @@ def route_after_intent(state: GraphState) -> str:
 
 
 def route_after_plan(state: GraphState) -> str:
-    """Curate user-file evidence (needs the approved plan as the agenda) before
-    writing, when files were provided; otherwise write straight away."""
+    """At gate 2: if the user hasn't approved, loop back to the manager to re-plan
+    from their feedback; once approved, curate user-file evidence (if any) then write."""
+    if not state.get("plan_approved"):
+        return "revise"
     return "curate" if state.get("user_files") else "write"
 
 

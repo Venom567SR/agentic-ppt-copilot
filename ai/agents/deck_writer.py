@@ -7,13 +7,16 @@ plan, fit-validates each slide, and does ONE tightening retry on overflow.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from ai.agents.base import BaseAgent
 from ai.agents_prompts.deck_writer import system_prompt as SYSTEM_PROMPT, VERSION
 from ai.schemas import SlideDraft, SlideContent, SlotContent, PlannedSlide
 from ai.graph.state import GraphState
 from ai.rendering.slot_map import by_id, writer_brief
 from ai.rendering import fit_validator as fv
-from ai.src.logger import get_logger
+from ai.config_env import settings
+from ai.src.logger import get_logger, bind_slide
 
 logger = get_logger(__name__)
 
@@ -103,6 +106,9 @@ def write_one(state: GraphState, planned: PlannedSlide,
     evidence = _combine_evidence(curated, web_evidence)
 
     ctx = {**state, "_slide": planned, "_evidence": evidence}
+    grounding = "user-files" if curated else ("web" if web_evidence else "narrative/none")
+    logger.info("[deck_writer] slide %s (%s): writing -- grounding=%s",
+                planned.slide, planned.layout_id, grounding)
     draft = _agent.run(ctx)
     # Retry only on SIGNIFICANT overflow (>15% over a line budget) or structural
     # issues (too many lines / bad grid / wrong label count). Minor 1-3 char
@@ -123,9 +129,32 @@ def write_one(state: GraphState, planned: PlannedSlide,
 
 
 def node(state: GraphState) -> dict:
-    """LangGraph node: write every planned slide -> list[SlideContent]."""
+    """LangGraph node: write every planned slide -> list[SlideContent].
+
+    Slides are independent, so they're written concurrently in a bounded thread pool
+    (settings.max_workers). Each task tags its logs with its slide id and writes its
+    web-evidence into a LOCAL dict; the node merges them afterward, so no shared
+    mutable state races across workers."""
     plan = state["plan"]
+    n = len(plan.slides)
+    workers = max(1, min(settings.max_workers, n))
+    logger.info("[deck_writer] writing %d slides (concurrency=%d)...", n, workers)
+
+    def _one(p: PlannedSlide):
+        local: dict[int, str] = {}
+        with bind_slide(p.slide):
+            sc = write_one(state, p, local)
+        return sc, local
+
+    if workers == 1 or n == 1:
+        results = [_one(p) for p in plan.slides]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            results = list(ex.map(_one, plan.slides))   # ex.map preserves plan order
+
+    slides = [sc for sc, _ in results]
     evidence_by_slide: dict[int, str] = {}
-    slides = [write_one(state, p, evidence_by_slide) for p in plan.slides]
-    logger.info("[deck_writer] wrote %d slides", len(slides))
+    for _, local in results:
+        evidence_by_slide.update(local)
+    logger.info("[deck_writer] wrote %d slides (concurrency=%d)", len(slides), workers)
     return {"slides": slides, "evidence_by_slide": evidence_by_slide, "status": "running"}

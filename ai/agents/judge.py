@@ -8,11 +8,14 @@ v1 verifies and reports; the repair/degradation routing is wired at the graph le
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from ai.agents.base import BaseAgent
 from ai.agents_prompts.judge import system_prompt as SYSTEM_PROMPT, VERSION
 from ai.schemas import GuardrailResult, SlideContent
 from ai.graph.state import GraphState
-from ai.src.logger import get_logger
+from ai.config_env import settings
+from ai.src.logger import get_logger, bind_slide
 
 logger = get_logger(__name__)
 
@@ -61,17 +64,28 @@ def node(state: GraphState) -> dict:
     curated = state.get("curated_evidence", "")
 
     results: dict[int, GuardrailResult] = {}
-    for sc in slides:
-        if kind_by_slide.get(sc.slide) != "data":
-            continue
-        evidence = _combine_evidence(curated, evidence_by_slide.get(sc.slide, ""))
-        result = check_one(sc, evidence, state["query"])
-        results[sc.slide] = result
-        if not result.passed:
-            bad = [c.claim for c in result.checks if not c.supported]
-            logger.warning("[judge] slide %s: %d unsupported claim(s): %s",
-                           sc.slide, len(bad), bad[:3])
-        else:
-            logger.info("[judge] slide %s: all %d claim(s) grounded", sc.slide, len(result.checks))
+    data_slides = [sc for sc in slides if kind_by_slide.get(sc.slide) == "data"]
 
+    def _one(sc: SlideContent):
+        evidence = _combine_evidence(curated, evidence_by_slide.get(sc.slide, ""))
+        with bind_slide(sc.slide):
+            result = check_one(sc, evidence, state["query"])
+            if not result.passed:
+                bad = [c.claim for c in result.checks if not c.supported]
+                logger.warning("[judge] slide %s: %d unsupported claim(s): %s",
+                               sc.slide, len(bad), bad[:3])
+            else:
+                logger.info("[judge] slide %s: all %d claim(s) grounded",
+                            sc.slide, len(result.checks))
+        return sc.slide, result
+
+    workers = max(1, min(settings.max_workers, len(data_slides) or 1))
+    logger.info("[judge] checking %d data slide(s) for grounding...", len(data_slides))
+    if workers == 1 or len(data_slides) <= 1:
+        pairs = [_one(sc) for sc in data_slides]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            pairs = list(ex.map(_one, data_slides))
+
+    results = {slide_no: r for slide_no, r in pairs}
     return {"guardrail": results}

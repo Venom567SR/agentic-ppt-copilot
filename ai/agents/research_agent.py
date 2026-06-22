@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from ai.agents.base import BaseAgent
 from ai.agents_prompts.research_agent import system_prompt as SYSTEM_PROMPT, VERSION
-from ai.schemas import ClarifyingQuestions
+from ai.schemas import ClarifyingQuestions, ClarifyingQuestion
 from ai.graph.state import GraphState
 
 
@@ -40,8 +40,8 @@ def node(state: GraphState) -> dict:
     result = _agent.run(state)
     questions = list(result.questions)
     scope_q = state.get("scope_question")
-    if scope_q and scope_q not in questions:
-        questions.append(scope_q)
+    if scope_q and all(q.question != scope_q for q in questions):
+        questions.append(ClarifyingQuestion(question=scope_q, suggestions=[]))
     return {
         "clarifying_questions": questions,
         "status": "awaiting_clarification",

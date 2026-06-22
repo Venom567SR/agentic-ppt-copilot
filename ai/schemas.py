@@ -40,9 +40,15 @@ class IntentVerdict(BaseModel):
     reason: str
 
 
+class ClarifyingQuestion(BaseModel):
+    model_config = _STRICT
+    question: str                                      # one concrete, plain-language question
+    suggestions: list[str] = Field(default_factory=list, max_length=4)  # 0-4 short example answers
+
+
 class ClarifyingQuestions(BaseModel):
     model_config = _STRICT
-    questions: list[str] = Field(min_length=1, max_length=5)
+    questions: list[ClarifyingQuestion] = Field(min_length=1, max_length=4)
 
 
 # ── Planning (phase 2) ────────────────────────────────────────────────────────
@@ -58,6 +64,7 @@ class DeckPlan(BaseModel):
     model_config = _STRICT
     deck_title: str
     subtitle: str = ""
+    note: str = ""                              # constraint/trade-off to surface at the gate
     slides: list[PlannedSlide] = Field(min_length=1, max_length=14)
 
 
@@ -155,8 +162,10 @@ class PlannerChoice(BaseModel):
 
 class PlannerOutput(BaseModel):
     model_config = _STRICT
+    rationale: str = Field(default="", max_length=600)  # CoT scaffold (manager prompt v3); empty under v2
     deck_title: str = Field(max_length=34)  # cover-slide title: must stay <=2 lines at 48pt
     subtitle: str = Field(default="", max_length=40)  # cover tagline
+    note: str = Field(default="", max_length=400)  # explain any constraint/trade-off to the user
     slides: list[PlannerChoice] = Field(min_length=1, max_length=11)
 
 

@@ -74,6 +74,8 @@ class BaseAgent(Generic[OutT]):
             raise AgentError(self.task, f"LLM call failed: {e}", cause=e)
 
         dt = (time.perf_counter() - t0) * 1000
-        logger.info("[%s %s] ok in %.0fms -> %s",
-                    self.task, self.prompt_version, dt, type(result).__name__)
+        from ai.llm import model_for
+        logger.info("[%s %s] %s temp=%s ok in %.0fms -> %s",
+                    self.task, self.prompt_version, model_for(self.task),
+                    self.temperature, dt, type(result).__name__)
         return result

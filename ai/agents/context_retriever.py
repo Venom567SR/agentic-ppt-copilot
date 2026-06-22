@@ -59,10 +59,13 @@ class Corpus:
 
 def build_corpus(paths: list[str]) -> Corpus:
     """Extract all files into a session-scoped Corpus. Dedups identical boilerplate
-    prose across files and enforces the per-presentation cap (raises ValueError if
-    exceeded, with a clear message for the caller to surface)."""
+    prose across files and enforces the per-presentation cap. Over the file cap, it
+    uses the FIRST MAX_FILES (so uploads are still grounded) rather than discarding
+    them; the token cap still raises (content genuinely too large)."""
     if len(paths) > MAX_FILES:
-        raise ValueError(f"Too many files: {len(paths)} (limit {MAX_FILES} per presentation).")
+        logger.warning("[context_retriever] %d files uploaded; using the first %d (per-deck cap).",
+                       len(paths), MAX_FILES)
+        paths = paths[:MAX_FILES]
 
     docs = extract_all(paths)
     chunks: list[Chunk] = []
@@ -193,17 +196,25 @@ _SESSION: dict[str, "Corpus"] = {}
 
 def ingest_node(state) -> dict:
     """Build the corpus from uploaded files (before clarify) -> corpus_map.
-    Over-cap inputs degrade to a warning and no corpus (run proceeds without files)."""
+    Over the file cap, use the first MAX_FILES and warn (run stays file-grounded);
+    only a genuine token-size overflow degrades to no corpus."""
     paths = state.get("user_files") or []
     if not paths:
         return {}
+    warnings = []
+    if len(paths) > MAX_FILES:
+        warnings.append(f"Used the first {MAX_FILES} of {len(paths)} uploaded files "
+                        f"(per-deck limit); the rest were not used for grounding.")
     try:
         corpus = build_corpus(paths)
-    except ValueError as e:                       # cap exceeded
+    except ValueError as e:                       # token cap exceeded -> proceed without files
         logger.warning("[context_retriever] %s", e)
         return {"warnings": [str(e)]}
     _SESSION[state["thread_id"]] = corpus
-    return {"corpus_map": corpus.map_for_planner()}
+    out = {"corpus_map": corpus.map_for_planner()}
+    if warnings:
+        out["warnings"] = warnings
+    return out
 
 
 def _agenda_from_plan(plan) -> str:

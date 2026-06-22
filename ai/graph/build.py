@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 from ai.graph.state import GraphState
 from ai.agents import (
@@ -85,6 +86,19 @@ def repair_node(state: GraphState) -> dict:
     return {"slides": new_slides, "fallbacks": fallbacks}
 
 
+def _default_checkpointer() -> MemorySaver:
+    """In-memory checkpointer whose serializer explicitly allows our Pydantic state
+    types. Without this, LangGraph logs a 'Deserializing unregistered type
+    ai.schemas.X' warning each time a model round-trips through the msgpack
+    checkpoint. We register every BaseModel in ai.schemas as known-safe."""
+    import ai.schemas as _schemas
+    from pydantic import BaseModel as _BaseModel
+    allowed = [("ai.schemas", name) for name, obj in vars(_schemas).items()
+               if isinstance(obj, type) and issubclass(obj, _BaseModel) and obj is not _BaseModel]
+    serde = JsonPlusSerializer(allowed_msgpack_modules=allowed)
+    return MemorySaver(serde=serde)
+
+
 def build_graph(checkpointer=None):
     """Assemble and compile the agentic graph. Pass a checkpointer (defaults to an
     in-memory one) -- required for the HITL gates to pause/resume by thread_id."""
@@ -109,7 +123,7 @@ def build_graph(checkpointer=None):
     g.add_edge("scope", "clarify")
     g.add_edge("clarify", "manager")                       # gate 1 pauses after clarify
     g.add_conditional_edges("manager", supervisor.route_after_plan,
-                            {"curate": "curate", "write": "write"})
+                            {"revise": "manager", "curate": "curate", "write": "write"})
     g.add_edge("curate", "write")
     g.add_edge("write", "images")
     g.add_edge("images", "judge")
@@ -119,6 +133,6 @@ def build_graph(checkpointer=None):
     g.add_edge("render", END)
 
     return g.compile(
-        checkpointer=checkpointer or MemorySaver(),
+        checkpointer=checkpointer or _default_checkpointer(),
         interrupt_after=["clarify", "manager"],            # HITL gates 1 & 2
     )

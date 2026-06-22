@@ -34,6 +34,7 @@ class Settings:
     gemini_api_key: str | None          # used only when USE_VERTEX=false
     tavily_api_key: str | None
     template_path: str
+    max_workers: int = 4                 # cap on concurrent per-slide LLM calls (writer/judge)
     model_routing: dict[str, str] = field(default_factory=dict)
     brand: dict = field(default_factory=dict)
 
@@ -48,6 +49,7 @@ def _load() -> Settings:
         gemini_api_key=os.getenv("GEMINI_API_KEY"),
         tavily_api_key=os.getenv("TAVILY_API_KEY"),
         template_path=cfg.get("template_path", "assets/ICICI_PRU_AMC_PPT_Format.pptx"),
+        max_workers=int(cfg.get("max_workers", 4)),
         model_routing=cfg.get("model_routing", {}),
         brand=cfg.get("brand", {}),
     )

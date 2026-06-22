@@ -20,6 +20,7 @@ from typing import Annotated, Literal, TypedDict
 
 from ai.schemas import (             # repo import
     IntentVerdict, DeckPlan, SlideContent, Source, FallbackDecision, GuardrailResult,
+    ClarifyingQuestion,
 )
 
 Status = Literal[
@@ -48,9 +49,11 @@ class GraphState(TypedDict, total=False):
 
     # ── phase outputs ──
     intent: IntentVerdict                       # (1) guard
-    clarifying_questions: list[str]             # (1) clarifier -> gate 1
-    clarification_answers: dict[str, str]       # user reply at gate 1
+    clarifying_questions: list[ClarifyingQuestion]  # (1) clarifier -> gate 1
+    clarification_answers: dict[str, str]       # user reply at gate 1 (keyed by question text)
     plan: DeckPlan                              # (2) planner -> gate 2
+    plan_approved: bool                         # gate 2: user accepted the plan
+    plan_feedback: str                          # gate 2: user's requested changes -> re-plan
     slides: list[SlideContent]                  # (3) content (set wholesale)
     evidence_by_slide: dict[int, str]           # (3) web evidence per data slide -> judge
     guardrail: dict[int, GuardrailResult]       # (4) grounding result per slide

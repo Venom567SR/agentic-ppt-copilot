@@ -34,8 +34,10 @@ def _client(model_id: str, temperature: float) -> ChatGoogleGenerativeAI:
     if settings.use_vertex:
         if not settings.gcp_project:
             raise ValueError("USE_VERTEX=true requires GOOGLE_CLOUD_PROJECT in .env")
-        logger.info("LLM via Vertex AI: model=%s temp=%s project=%s location=%s",
-                    model_id, temperature, settings.gcp_project, settings.gcp_location)
+        # Per-invoke model logging happens in BaseAgent.run (truthful per slide);
+        # this fires only on first client construction, so keep it at DEBUG.
+        logger.debug("constructed Vertex client: model=%s temp=%s project=%s location=%s",
+                     model_id, temperature, settings.gcp_project, settings.gcp_location)
         # NOTE: no api_key on the Vertex path (api_key + vertexai=True is a known bug).
         return ChatGoogleGenerativeAI(
             model=model_id,
@@ -47,7 +49,7 @@ def _client(model_id: str, temperature: float) -> ChatGoogleGenerativeAI:
     # Developer API fallback
     if not settings.gemini_api_key:
         raise ValueError("USE_VERTEX=false requires GEMINI_API_KEY in .env")
-    logger.info("LLM via Gemini Developer API: model=%s temp=%s", model_id, temperature)
+    logger.debug("constructed Gemini Developer client: model=%s temp=%s", model_id, temperature)
     return ChatGoogleGenerativeAI(
         model=model_id,
         temperature=temperature,
