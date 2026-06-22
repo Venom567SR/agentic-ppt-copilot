@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Deck Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#053C6D; --orange:#DB620A; --maroon:#97291E; --gold:#FDB92A;
+    --beige:#D1CFBB; --paper:#FBFAF7; --card:#FFFFFF; --ink:#0A1A2A;
+    --line:#E7E3D8; --muted:#5C6B7A;
+    --grounded:#2E7D52; --softened:#DB620A; --unsupported:#97291E;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --shadow:0 1px 2px rgba(5,60,109,.06),0 8px 30px rgba(5,60,109,.07);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:"Mulish",system-ui,sans-serif; color:var(--ink);
+    background:
+      radial-gradient(1200px 400px at 90% -10%, rgba(253,185,42,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(219,98,10,.06), transparent 55%),
+      var(--paper);
+    min-height:100vh; line-height:1.5;
+  }
+  .topbar{height:4px;background:linear-gradient(90deg,var(--orange),var(--gold) 55%,var(--maroon))}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 64px}
+  header.head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:28px}
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);font-weight:800}
+  h1.brand{font-size:26px;font-weight:900;color:var(--navy);margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px}
+
+  .app{display:grid;grid-template-columns:210px 1fr;gap:28px;align-items:start}
+  @media(max-width:760px){ .app{grid-template-columns:1fr} }
+
+  /* ── signature: gate stepper ── */
+  .rail{position:sticky;top:24px;display:flex;flex-direction:column;gap:0}
+  @media(max-width:760px){ .rail{flex-direction:row;justify-content:space-between;position:static;margin-bottom:8px} }
+  .step{display:flex;gap:12px;align-items:flex-start;padding:0 0 26px;position:relative}
+  .step:last-child{padding-bottom:0}
+  .step .line{position:absolute;left:13px;top:28px;bottom:0;width:2px;background:var(--line)}
+  .step:last-child .line{display:none}
+  @media(max-width:760px){ .step{flex-direction:column;align-items:center;gap:6px;padding:0;text-align:center} .step .line{display:none} }
+  .dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--card);
+       display:grid;place-items:center;font-weight:800;font-size:13px;color:var(--muted);
+       flex:none;transition:.4s;z-index:1}
+  .step.done .dot{background:var(--navy);border-color:var(--navy);color:#fff}
+  .step.done .line{background:var(--navy)}
+  .step.active .dot{border-color:var(--gold);color:var(--maroon);box-shadow:0 0 0 5px rgba(253,185,42,.22)}
+  .step .label{font-size:13px;font-weight:700;color:var(--muted);padding-top:4px}
+  .step.active .label,.step.done .label{color:var(--navy)}
+
+  /* ── panel ── */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+         padding:28px;animation:rise .45s cubic-bezier(.2,.7,.2,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .stage{display:none}
+  .stage.on{display:block}
+  h2.title{font-size:20px;font-weight:800;color:var(--maroon);margin:0 0 4px}
+  .hint{color:var(--muted);font-size:14px;margin:0 0 20px}
+
+  label.fld{display:block;font-weight:700;font-size:13px;color:var(--navy);margin:0 0 6px}
+  textarea,input[type=text]{width:100%;font:inherit;padding:12px 14px;border:1.5px solid var(--line);
+    border-radius:10px;background:#fff;color:var(--ink);transition:.15s}
+  textarea:focus,input[type=text]:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 4px rgba(219,98,10,.12)}
+  textarea{resize:vertical;min-height:80px}
+  .file{margin-top:14px}
+  .file input{font:inherit;font-size:13px;color:var(--muted)}
+  .filenote{font-size:12px;color:var(--muted);margin-top:6px}
+
+  .btn{font:inherit;font-weight:800;border:none;border-radius:10px;padding:12px 22px;cursor:pointer;transition:.15s;font-size:14px}
+  .btn.primary{background:var(--orange);color:#fff}
+  .btn.primary:hover{background:#c2560a;transform:translateY(-1px)}
+  .btn.ghost{background:transparent;color:var(--navy);border:1.5px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--navy)}
+  .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px;align-items:center}
+
+  /* questions */
+  .q{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;background:#fff}
+  .q .qt{font-weight:700;color:var(--navy);margin-bottom:10px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .chip{font:inherit;font-size:12.5px;font-weight:700;border:1.5px solid var(--beige);background:#fdfcf9;
+        color:var(--navy);border-radius:999px;padding:6px 13px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--orange);color:var(--orange)}
+  .chip.sel{background:var(--navy);border-color:var(--navy);color:#fff}
+
+  /* plan */
+  .deckhead{font-size:18px;font-weight:900;color:var(--navy)}
+  .decksub{color:var(--muted);font-size:13.5px;margin-bottom:14px}
+  ol.slides{list-style:none;counter-reset:s;padding:0;margin:0 0 6px}
+  ol.slides li{counter-increment:s;display:flex;gap:12px;padding:11px 0;border-bottom:1px dashed var(--line)}
+  ol.slides li::before{content:counter(s,decimal-leading-zero);font:700 12px/1.8 var(--mono);color:var(--orange);flex:none}
+  .slttl{font-weight:700;color:var(--ink)}
+  .sllayout{color:var(--muted);font-size:12.5px}
+  .note{margin-top:14px;background:#fff8e8;border:1px solid var(--gold);border-radius:10px;padding:12px 14px;
+        font-size:13.5px;color:#6b4e00}
+  .note b{color:var(--maroon)}
+  .revise{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+  .revise input{flex:1;min-width:220px}
+
+  /* generating */
+  .gen{text-align:center;padding:14px 0}
+  .pulse{width:64px;height:64px;margin:6px auto 18px;border-radius:50%;
+         background:conic-gradient(var(--orange),var(--gold),var(--maroon),var(--orange));
+         -webkit-mask:radial-gradient(circle 22px,transparent 98%,#000);mask:radial-gradient(circle 22px,transparent 98%,#000);
+         animation:spin 1.4s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .genmsg{font-weight:800;color:var(--navy);font-size:16px;min-height:24px}
+  .genelapsed{color:var(--muted);font-size:13px;margin-top:4px;font-family:var(--mono)}
+  .bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin:20px auto 0;max-width:420px}
+  .bar i{display:block;height:100%;width:40%;border-radius:999px;background:linear-gradient(90deg,var(--orange),var(--gold));
+         animation:slide 1.6s ease-in-out infinite}
+  @keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(310%)}}
+
+  /* result */
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 22px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:12px 16px;background:#fff;min-width:120px}
+  .stat .n{font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)}
+  .stat .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .provslide{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .provslide>h4{margin:0;padding:12px 16px;background:#f7f5ef;font-size:14px;color:var(--navy);
+                display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+  .provslide>h4 .pos{font-family:var(--mono);color:var(--orange);font-weight:800}
+  .concept{padding:13px 16px;color:var(--muted);font-size:13.5px;font-style:italic}
+  .claim{padding:12px 16px;border-bottom:1px dashed var(--line);animation:rise .35s ease both}
+  .claim:last-child{border-bottom:none}
+  .claim .ct{font-size:14px;color:var(--ink);margin-bottom:6px}
+  .claimrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .status{font:800 10.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;
+          padding:5px 9px;border-radius:6px;color:#fff;flex:none}
+  .status.grounded{background:var(--grounded)}
+  .status.softened{background:var(--softened)}
+  .status.unsupported{background:var(--unsupported)}
+  .src{font-size:12px;color:var(--muted)}
+  .src a{color:var(--navy);text-decoration:none;border-bottom:1px solid var(--beige)}
+  .src a:hover{color:var(--orange);border-color:var(--orange)}
+  .srcchip{display:inline-block;font-family:var(--mono);font-size:11.5px;background:#f1efe8;border:1px solid var(--line);
+           border-radius:6px;padding:3px 8px;margin:2px 4px 2px 0;color:var(--navy);text-decoration:none}
+  .srcchip:hover{border-color:var(--orange)}
+
+  .err{background:#fdeceb;border:1px solid var(--maroon);color:var(--maroon);border-radius:10px;
+       padding:12px 14px;font-size:14px;margin-top:16px}
+  .blocked{background:#fdeceb;border:1px solid var(--maroon);color:var(--maroon);border-radius:10px;padding:16px}
+  .dl{display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <div class="eyebrow">Sahil Rahate · Generative AI Engineer</div>
+      <h1 class="brand">Agentic Deck Copilot</h1>
+    </div>
+    <span class="sub">Brand-faithful presentations, grounded claim by claim.</span>
+  </header>
+
+  <div class="app">
+    <!-- signature: gate rail -->
+    <nav class="rail" id="rail">
+      <div class="step active" data-step="1"><span class="line"></span><span class="dot">1</span><span class="label">Topic</span></div>
+      <div class="step" data-step="2"><span class="line"></span><span class="dot">2</span><span class="label">Questions</span></div>
+      <div class="step" data-step="3"><span class="line"></span><span class="dot">3</span><span class="label">Plan</span></div>
+      <div class="step" data-step="4"><span class="line"></span><span class="dot">4</span><span class="label">Deck</span></div>
+    </nav>
+
+    <main class="panel" id="panel">
+      <!-- 1: topic -->
+      <section class="stage on" id="s1">
+        <h2 class="title">What should the deck cover?</h2>
+        <p class="hint">Give a topic. Optionally attach source files (CSV/XLSX/PDF/DOCX) — claims will be grounded in them first.</p>
+        <label class="fld" for="topic">Topic</label>
+        <textarea id="topic" placeholder="e.g. Indian Banking Sector: Growth &amp; Outlook"></textarea>
+        <div class="file">
+          <label class="fld" for="files">Source files (optional)</label>
+          <input type="file" id="files" multiple>
+          <div class="filenote" id="filenote"></div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="startBtn" onclick="start()">Start</button>
+        </div>
+        <div id="s1err"></div>
+      </section>
+
+      <!-- 2: questions -->
+      <section class="stage" id="s2">
+        <h2 class="title">A few quick questions</h2>
+        <p class="hint">Tap a suggestion or type your own — these focus the deck.</p>
+        <div id="qlist"></div>
+        <div class="actions">
+          <button class="btn primary" id="ansBtn" onclick="submitAnswers()">Continue</button>
+        </div>
+        <div id="s2err"></div>
+      </section>
+
+      <!-- 3: plan -->
+      <section class="stage" id="s3">
+        <h2 class="title">Proposed plan</h2>
+        <p class="hint">Approve to generate, or describe changes and I'll re-plan.</p>
+        <div id="planbox"></div>
+        <div class="revise">
+          <input type="text" id="feedback" placeholder="e.g. add more bullet slides, drop the smartart…">
+          <button class="btn ghost" id="reviseBtn" onclick="revise()">Revise plan</button>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="approveBtn" onclick="approve()">Approve &amp; generate</button>
+        </div>
+        <div id="s3err"></div>
+      </section>
+
+      <!-- 4: generating -->
+      <section class="stage" id="s4">
+        <div class="gen">
+          <div class="pulse"></div>
+          <div class="genmsg" id="genmsg">Starting…</div>
+          <div class="genelapsed" id="genelapsed">0s elapsed</div>
+          <div class="bar"><i></i></div>
+        </div>
+      </section>
+
+      <!-- 5: result -->
+      <section class="stage" id="s5">
+        <h2 class="title" id="resTitle">Your deck is ready</h2>
+        <p class="hint">Every data claim is traced below. Sources link out where available.</p>
+        <div class="summary" id="summary"></div>
+        <div class="actions" style="margin-top:0;margin-bottom:22px">
+          <a class="btn primary dl" id="dlBtn" href="#" download>⬇ Download .pptx</a>
+          <button class="btn ghost" onclick="reset()">New deck</button>
+        </div>
+        <h2 class="title" style="font-size:16px">Provenance</h2>
+        <div id="prov"></div>
+      </section>
+
+      <div id="blocked"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+const API = "";                       // same origin (served by FastAPI)
+const S = { sid:null, questions:[], pollTimer:null, animTimer:null, t0:0 };
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(path, opts){
+  const r = await fetch(API+path, opts);
+  if(!r.ok){ let t; try{t=(await r.json()).detail||JSON.stringify(await r.json());}catch{ t=await r.text(); } throw new Error(`${r.status} · ${t}`); }
+  return r.json();
+}
+function busy(id,on){ const b=$(id); if(b){ b.disabled=on; b.dataset.t=b.dataset.t||b.textContent; b.textContent=on?"Working…":b.dataset.t; } }
+function errInto(id,msg){ $(id).innerHTML = `<div class="err">${esc(msg)}</div>`; }
+function setStage(n){
+  [1,2,3,4,5].forEach(i=>$("#s"+i).classList.toggle("on", i===n));
+  document.querySelectorAll(".step").forEach(st=>{
+    const k=+st.dataset.step; st.classList.toggle("done", k< Math.min(n,4)); st.classList.toggle("active", k===Math.min(n,4));
+  });
+  $("#panel").style.animation="none"; void $("#panel").offsetWidth; $("#panel").style.animation="";
+}
+
+$("#files").addEventListener("change", e=>{
+  const n=e.target.files.length; $("#filenote").textContent = n? `${n} file(s): ${[...e.target.files].map(f=>f.name).join(", ")}`:"";
+});
+
+async function start(){
+  $("#s1err").innerHTML="";
+  const topic=$("#topic").value.trim();
+  if(!topic){ errInto("#s1err","Enter a topic to begin."); return; }
+  busy("#startBtn",true);
+  try{
+    let upload_ids=[];
+    const files=$("#files").files;
+    if(files.length){
+      const fd=new FormData(); for(const f of files) fd.append("files",f);
+      const up=await api("/uploads",{method:"POST",body:fd}); upload_ids=[up.upload_id];
+    }
+    const res=await api("/sessions",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({topic,upload_ids})});
+    S.sid=res.session_id;
+    if(res.status==="blocked"){ showBlocked(res.reason); return; }
+    S.questions=res.questions||[];
+    renderQuestions(); setStage(2);
+  }catch(e){ errInto("#s1err",e.message); }
+  finally{ busy("#startBtn",false); }
+}
+
+function renderQuestions(){
+  $("#qlist").innerHTML = S.questions.map((q,i)=>`
+    <div class="q">
+      <div class="qt">${esc(q.question)}</div>
+      <div class="chips">${(q.suggestions||[]).map(s=>`<button type="button" class="chip" onclick="pick(${i},this)">${esc(s)}</button>`).join("")}</div>
+      <input type="text" id="ans-${i}" placeholder="Type an answer…">
+    </div>`).join("");
+  if(!S.questions.length) $("#qlist").innerHTML=`<p class="hint">No clarifying questions — continue.</p>`;
+}
+function pick(i,btn){
+  $("#ans-"+i).value=btn.textContent;
+  btn.parentElement.querySelectorAll(".chip").forEach(c=>c.classList.remove("sel")); btn.classList.add("sel");
+}
+
+async function submitAnswers(){
+  $("#s2err").innerHTML="";
+  const answers={};
+  S.questions.forEach((q,i)=>{ const v=$("#ans-"+i).value.trim(); answers[q.question]= v || (q.suggestions&&q.suggestions[0])||"No preference"; });
+  busy("#ansBtn",true);
+  try{
+    const res=await api(`/sessions/${S.sid}/clarify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({answers})});
+    renderPlan(res.plan); setStage(3);
+  }catch(e){ errInto("#s2err",e.message); }
+  finally{ busy("#ansBtn",false); }
+}
+
+function renderPlan(plan){
+  $("#planbox").innerHTML = `
+    <div class="deckhead">${esc(plan.deck_title)}</div>
+    ${plan.subtitle?`<div class="decksub">${esc(plan.subtitle)}</div>`:""}
+    <ol class="slides">${plan.slides.map(s=>`<li><div><div class="slttl">${esc(s.title)}</div><div class="sllayout">${esc(s.layout)}</div></div></li>`).join("")}</ol>
+    ${plan.note?`<div class="note"><b>Note · </b>${esc(plan.note)}</div>`:""}`;
+}
+
+async function revise(){
+  $("#s3err").innerHTML="";
+  const fb=$("#feedback").value.trim();
+  if(!fb){ errInto("#s3err","Describe the change, or press Approve to generate."); return; }
+  busy("#reviseBtn",true);
+  try{
+    const res=await api(`/sessions/${S.sid}/plan`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({feedback:fb})});
+    renderPlan(res.plan); $("#feedback").value="";
+  }catch(e){ errInto("#s3err",e.message); }
+  finally{ busy("#reviseBtn",false); }
+}
+
+const GEN_MSGS=["Researching sources…","Writing each slide…","Building charts…","Checking every claim against evidence…","Softening anything unverified…","Assembling the branded deck…"];
+async function approve(){
+  $("#s3err").innerHTML="";
+  busy("#approveBtn",true);
+  try{
+    await api(`/sessions/${S.sid}/plan`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({approve:true})});
+    setStage(4); startPolling();
+  }catch(e){ errInto("#s3err",e.message); busy("#approveBtn",false); }
+}
+
+function startPolling(){
+  S.t0=Date.now(); let mi=0;
+  $("#genmsg").textContent=GEN_MSGS[0];
+  S.animTimer=setInterval(()=>{
+    const s=Math.floor((Date.now()-S.t0)/1000);
+    $("#genelapsed").textContent=`${s}s elapsed`;
+    if(s>0 && s%9===0){ mi=(mi+1)%GEN_MSGS.length; $("#genmsg").textContent=GEN_MSGS[mi]; }
+  },1000);
+  S.pollTimer=setInterval(async()=>{
+    try{
+      const st=await api(`/sessions/${S.sid}`);
+      if(st.status==="done"){ stopTimers(); loadResult(); }
+      else if(st.status==="error"){ stopTimers(); setStage(3); errInto("#s3err","Generation failed: "+(st.error||"unknown")); busy("#approveBtn",false); }
+    }catch(e){ /* transient; keep polling */ }
+  },4000);
+}
+function stopTimers(){ clearInterval(S.pollTimer); clearInterval(S.animTimer); }
+
+async function loadResult(){
+  try{
+    const res=await api(`/sessions/${S.sid}/result`);
+    const sm=res.summary, pr=res.provenance;
+    let grounded=0, softened=0;
+    pr.slides.forEach(s=>(s.claims||[]).forEach(c=>{ if(c.status==="grounded")grounded++; else if(c.status==="softened")softened++; }));
+    $("#resTitle").textContent=`"${sm.deck_title}" is ready`;
+    $("#summary").innerHTML=[
+      ["Slides", sm.slides.length],["Grounded claims", grounded],["Softened", softened],
+      ["Sources", (sm.sources&&sm.sources.length)|| (pr.sources?pr.sources.filter(x=>x.url).length:0)]
+    ].map(([k,n])=>`<div class="stat"><div class="n">${n}</div><div class="k">${k}</div></div>`).join("");
+    $("#dlBtn").href=`/sessions/${S.sid}/deck`;
+    $("#prov").innerHTML=pr.slides.map(s=>{
+      if(!s.verified) return `<div class="provslide"><h4><span class="pos">${String(s.position).padStart(2,"0")}</span> ${esc(s.title)}</h4><div class="concept">${esc(s.note||"Conceptual — not source-verified")}</div></div>`;
+      const rows=(s.claims||[]).map(c=>{
+        const src=(c.source||[]).map(o=>o.url?`<a class="srcchip" href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.title||o.url)} ↗</a>`:`<span class="src">${esc(o.title)}</span>`).join(" ");
+        return `<div class="claim"><div class="ct">${esc(c.claim)}</div><div class="claimrow"><span class="status ${esc(c.status)}">${esc(c.status)}</span> ${src}</div></div>`;
+      }).join("");
+      return `<div class="provslide"><h4><span class="pos">${String(s.position).padStart(2,"0")}</span> ${esc(s.title)}</h4>${rows}</div>`;
+    }).join("");
+    setStage(5);
+  }catch(e){ setStage(3); errInto("#s3err",e.message); busy("#approveBtn",false); }
+}
+
+function showBlocked(reason){
+  $("#blocked").innerHTML=`<div class="blocked"><b>This request was declined.</b><br>${esc(reason||"The topic falls outside what this tool will generate.")}</div>`;
+  [1,2,3,4,5].forEach(i=>$("#s"+i).classList.remove("on"));
+}
+function reset(){ stopTimers(); S.sid=null; S.questions=[];
+  $("#topic").value=""; $("#files").value=""; $("#filenote").textContent=""; $("#feedback").value="";
+  ["#s1err","#s2err","#s3err","#blocked","#qlist","#planbox","#prov","#summary"].forEach(s=>$(s).innerHTML="");
+  busy("#approveBtn",false); setStage(1);
+}
+</script>
+</body>
+</html>
